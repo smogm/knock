@@ -21,19 +21,21 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
-#include <netdb.h>
 #include <sys/types.h>
+#if defined(_WIN32) || defined(WIN32) || defined(__CYGWIN__) || defined(__MINGW32__) || defined(__BORLANDC__)
+#include <winsock.h>
+#else
+#include <netdb.h>
 #include <sys/socket.h>
-#if defined(__FreeBSD__) || defined(__APPLE__)
-#include <netinet/in.h>
-#endif
 #include <arpa/inet.h>
-#include <unistd.h>
-#include <string.h>
 #include <netinet/in.h>
 #include <resolv.h>
-#include <getopt.h>
 #include <fcntl.h>
+#endif
+#include <unistd.h>
+#include <string.h>
+#include <getopt.h>
+
 
 static char version[] = "0.7";
 
@@ -87,6 +89,15 @@ int main(int argc, char** argv)
 		fprintf(stderr, "error: delay cannot be negative\n");
 		exit(1);
 	}
+	
+#if defined(_WIN32) || defined(WIN32) || defined(__CYGWIN__) || defined(__MINGW32__) || defined(__BORLANDC__)
+	WSADATA wsaData;
+    int err = WSAStartup(MAKEWORD(2, 2), &wsaData);
+    if (err != 0) {
+        fprintf(stderr, "WSAStartup failed with error: %d\n", err);
+        exit(1);
+    }
+#endif
 
 	host = gethostbyname(argv[optind++]);
 	if(host == NULL) {
@@ -123,8 +134,14 @@ int main(int argc, char** argv)
 				fprintf(stderr, "Cannot open socket\n");
 				exit(1);
 			}
+
+#if defined(_WIN32) || defined(WIN32) || defined(__CYGWIN__) || defined(__MINGW32__) || defined(__BORLANDC__)
+			unsigned long mode = 1;
+			ioctlsocket(sd, FIONBIO, &mode);
+#else
 			flags = fcntl(sd, F_GETFL, 0);
 			fcntl(sd, F_SETFL, flags | O_NONBLOCK);
+#endif
 		}
 		memset(&addr, 0, sizeof(addr));
 		addr.sin_family = AF_INET;
